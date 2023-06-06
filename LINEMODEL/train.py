@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 class DiateatsDatasets(Dataset):
     def __init__(self, filepath):
-        xy = np.loadtxt(filepath, delimter=',', dtype=np.float32)
+        xy = np.loadtxt(filepath, delimiter=',', dtype=np.float32)
         self.x_data = torch.from_numpy(xy[:, :-1])
         self.y_data = torch.from_numpy(xy[:, [-1]])
         self.len = xy.shape[0]
@@ -27,6 +27,26 @@ class LinearModule(torch.nn.Module):
         return y_prey
     
 if __name__ == '__main__':
-    datasets = DiateatsDatasets('/datasets/diabetes/diabetes.csv.gz')
+    datasets = DiateatsDatasets('../datasets/diabetes/diabetes.csv.gz')
+    train_loader  = DataLoader(dataset=datasets, shuffle=True, batch_size=32, num_workers=0)
+
+    module = LinearModule()
+    criteration = torch.nn.BCELoss(reduction='mean')
+    optimition = torch.optim.SGD(module.parameters(), lr=0.1)
+
+    for epoch in range(100):
+        for i, data in enumerate(train_loader, 0):
+            x_data, y_data = data
+            y_prey = module(x_data)
+            loss = criteration(y_prey, y_data)
+            print(epoch, i, loss.item())
+            optimition.zero_grad()
+            loss.backward()
+            optimition.step()
     
+        xy = np.loadtxt('../datasets/diabetes/diabetes.csv.gz', delimiter=',', dtype=np.float32)
+        x_test = torch.from_numpy(xy[-5:, :-1])
+        y_test = module(x_test)
+
+        print('y_test:', y_test) 
 

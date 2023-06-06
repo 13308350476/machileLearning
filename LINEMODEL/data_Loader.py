@@ -34,8 +34,8 @@ class LinearModle(torch.nn.Module):
 
 if __name__ == '__main__':
 
-    datasets = DiabetesDatasets('/datasets/diabetes/diabetes.csv.gz')
-    train_loader = DataLoader(dataset=datasets, batch_size=32, shuffle=True, num_workers=0) 
+    datasets = DiabetesDatasets('../datasets/diabetes/diabetes.csv.gz')
+    train_loader = DataLoader(dataset=datasets, batch_size=32, shuffle=True, num_workers=2) 
 
     modle = LinearModle()
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
             loss.backward()
             optimition.step()
 
-    xy = np.loadtxt('/datasets/diabetes/diabetes.csv.gz', delimiter=',', dtype=np.float32)
+    xy = np.loadtxt('../datasets/diabetes/diabetes.csv.gz', delimiter=',', dtype=np.float32)
     x_test = torch.from_numpy(xy[-5:, :-1])
     y_test = modle(x_test)
 
