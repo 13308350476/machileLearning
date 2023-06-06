@@ -32,17 +32,17 @@ class LinearModle(torch.nn.Module):
         x = self.sigmoid(self.linear3(x))
         return x
 
+datasets = DiabetesDatasets('../datasets/diabetes/diabetes.csv.gz')
+train_loader = DataLoader(dataset=datasets, batch_size=32, shuffle=True, num_workers=0) 
+
+modle = LinearModle()
+
+criteration = torch.nn.BCELoss(reduction='mean')
+optimition = torch.optim.SGD(modle.parameters(), lr=0.01)
+
 if __name__ == '__main__':
-
-    datasets = DiabetesDatasets('../datasets/diabetes/diabetes.csv.gz')
-    train_loader = DataLoader(dataset=datasets, batch_size=32, shuffle=True, num_workers=2) 
-
-    modle = LinearModle()
-
-    criteration = torch.nn.BCELoss(reduction='mean')
-    optimition = torch.optim.SGD(modle.parameters(), lr=0.01)
     print('!!!!!!!!!!')
-    for epoch in range(10000):
+    for epoch in range(10):
         print("epoch:", epoch)
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data
