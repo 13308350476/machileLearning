@@ -1,52 +1,53 @@
-import torch
-import numpy as np
-from torch.utils.data import Dataset
+import torch 
+from torchvision import datasets
+from torchvision import transforms
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 
-class DiateatsDatasets(Dataset):
-    def __init__(self, filepath):
-        xy = np.loadtxt(filepath, delimiter=',', dtype=np.float32)
-        self.x_data = torch.from_numpy(xy[:, :-1])
-        self.y_data = torch.from_numpy(xy[:, [-1]])
-        self.len = xy.shape[0]
 
-    def __getitem__(self, index):
-        return self.x_data[index], self.y_data[index]
-    
-    def __len__(self):
-        return self.len
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
+batch_size = 64
 
-class LinearModule(torch.nn.Module):
+train_set = datasets.MNIST(root='../datasets/minist', train=True, download=True, transform=transform)
+train_load = DataLoader(dataset=train_set, shuffle=True, batch_size=batch_size)
+
+test_set = datasets.MNIST(root='../datasets/minist', train=False, download=True, transform=transform)
+test_load = DataLoader(dataset=test_set, shuffle=False, batch_size=batch_size)
+
+class NET(torch.nn.Module):
     def __init__(self):
-        super(LinearModule, self).__init__()
-        self.linear = torch.nn.Linear(8, 1)
-        self.sigmoid = torch.nn.Sigmoid()
-        
+        super(NET, self).__init__()
+        self.l1 = torch.nn.Linear(784, 128)
+        self.l2 = torch.nn.Linear(128, 10)
+
     def forward(self, x):
-        y_prey = self.sigmoid(self.linear(x))
-        return y_prey
+        x = x.view(-1, 784)
+        x = F.relu(self.l1(x))
+        x = self.l2(x)
+        return x
     
+modle = NET()
+
+criteration = torch.nn.CrossEntropyLoss()
+optimition = torch.optim.SGD(modle.parameters(), lr=0.05, momentum=0.5)
+
+def train(epoch):
+    total_loss = 0
+    for index, data in enumerate(train_load, 0):
+        x_data, y_data = data
+        y_prey = modle(x_data)
+        loss = criteration(y_prey, y_data)
+        total_loss += loss
+        optimition.zero_grad()
+        loss.backward()
+        optimition.step()
+        if index % 300 == 299:
+            print(epoch + 1, index + 1, total_loss / 300)
+            total_loss = 0
+
 if __name__ == '__main__':
-    datasets = DiateatsDatasets('../datasets/diabetes/diabetes.csv.gz')
-    train_loader  = DataLoader(dataset=datasets, shuffle=True, batch_size=32, num_workers=0)
-
-    module = LinearModule()
-    criteration = torch.nn.BCELoss(reduction='mean')
-    optimition = torch.optim.SGD(module.parameters(), lr=0.1)
-
-    for epoch in range(100):
-        for i, data in enumerate(train_loader, 0):
-            x_data, y_data = data
-            y_prey = module(x_data)
-            loss = criteration(y_prey, y_data)
-            print(epoch, i, loss.item())
-            optimition.zero_grad()
-            loss.backward()
-            optimition.step()
-    
-        xy = np.loadtxt('../datasets/diabetes/diabetes.csv.gz', delimiter=',', dtype=np.float32)
-        x_test = torch.from_numpy(xy[-5:, :-1])
-        y_test = module(x_test)
-
-        print('y_test:', y_test) 
-
+    for epoch in range(20):
+        train(epoch)
