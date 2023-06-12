@@ -4,38 +4,36 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
-
 batch_size = 64
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))
 ])
 
-train_sets = datasets.MNIST(root='../datasets/minist', train=True, download=False, transform=transform)
-train_loader = DataLoader(dataset=train_sets, shuffle=True, batch_size=batch_size)
+
+train_set = datasets.MNIST(root='../datasets/minist', train=True, download=False, transform=transform)
+train_loader = DataLoader(dataset=train_set, batch_size=batch_size, shuffle=True)
+
+test_set = datasets.MNIST(root='../datasets/minist', train=False, download=False, transform=transform)
+test_loader = DataLoader(dataset=test_set, batch_size=batch_size, shuffle=False)
+
 
 class CNN(torch.nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
-        self.conv1 = torch.nn.Conv2d(1, 5, kernel_size=3)
-        self.conv2 = torch.nn.Conv2d(5, 10, kernel_size=4)
-        self.conv3 = torch.nn.Conv2d(10, 20, kernel_size=2)
+        self.conv_layer1 = torch.nn.Conv2d(1, 10, kernel_size=5)
+        self.conv_layer2 = torch.nn.Conv2d(10, 20, kernel_size=5)
         self.pooling = torch.nn.MaxPool2d(2)
-        self.linear1 = torch.nn.Linear(80, 60)
-        self.linear2 = torch.nn.Linear(60, 40)
-        self.linear3 = torch.nn.Linear(40, 10)
+        self.linear = torch.nn.Linear(320, 10)
 
     def forward(self, x):
         batchsize = x.size(0)
-        x = F.relu(self.pooling(self.conv1(x)))
-        x = F.relu(self.pooling(self.conv2(x)))
-        x = F.relu(self.pooling(self.conv3(x)))
+        x = F.relu(self.pooling(self.conv_layer1(x)))
+        x = F.relu(self.pooling(self.conv_layer2(x)))
         x = x.view(batchsize, -1)
-        x = F.relu(self.linear1(x))
-        x = F.relu(self.linear2(x))
-        x = self.linear3(x)
+        x = self.linear(x)
         return x
-    
+
 modle = CNN()
 criteration = torch.nn.CrossEntropyLoss()
 optimition = torch.optim.SGD(modle.parameters(), lr=0.05, momentum=0.5)
