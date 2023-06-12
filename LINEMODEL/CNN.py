@@ -35,6 +35,9 @@ class CNN(torch.nn.Module):
         return x
 
 modle = CNN()
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+print('cuda is aviluable:', torch.cuda.is_available())
+modle.to(device)
 criteration = torch.nn.CrossEntropyLoss()
 optimition = torch.optim.SGD(modle.parameters(), lr=0.05, momentum=0.5)
 
@@ -42,6 +45,7 @@ def train(epoch):
     total_loss = 0
     for index, data in enumerate(train_loader, 0):
         x_data, y_data = data
+        x_data, y_data = x_data.to(device), y_data.to(device)
         y_prey = modle(x_data)
         loss = criteration(y_prey, y_data)
         total_loss += loss
@@ -52,6 +56,6 @@ def train(epoch):
             print('[%d, %5d] loss: %.3f' % (epoch + 1, index + 1, total_loss / 300))
             total_loss = 0.0
 
-if __name__ == '__main__':
-    for epoch in range(1):
-        train(epoch)
+# if __name__ == '__main__':
+for epoch in range(100):
+    train(epoch)
