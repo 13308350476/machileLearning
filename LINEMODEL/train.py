@@ -3,7 +3,7 @@ from torchvision import datasets
 from torchvision import transforms
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
-
+import torch.nn as nn
 
 batch_size = 64
 transform = transforms.Compose([
@@ -14,26 +14,62 @@ transform = transforms.Compose([
 train_sets = datasets.MNIST(root='../datasets/minist', train=True, download=False, transform=transform)
 train_loader = DataLoader(dataset=train_sets, shuffle=True, batch_size=batch_size)
 
+
+class Inception(nn.Module):
+    def __init__(self, channel):
+        super(Inception, self).__init__()
+        self.aver_pool = nn.AvgPool2d(kernel_size=3, padding=1, stride=1)
+        self.branch_pool = nn.Conv2d(channel, 24, kernel_size=1)
+
+        self.branch1x1 = nn.Conv2d(channel, 16, kernel_size=1)
+
+        self.branch5x5_1 = nn.Conv2d(channel, 16, kernel_size=1)
+        self.branch5x5_2 = nn.Conv2d(16, 24, kernel_size=5, padding=2)
+
+        self.branch3x3_1 = nn.Conv2d(channel, 16, kernel_size=1)
+        self.branch3x3_2 = nn.Conv2d(16, 24, kernel_size=3, padding=1)
+        self.branch3x3_3 = nn.Conv2d(24, 24, kernel_size=3, padding=1)
+
+    def forward(self, x):
+        layer1 = self.aver_pool(x)
+        layer1 = self.branch_pool(layer1)
+
+        layer2 = self.branch1x1(x)
+        
+        layer3 = self.branch5x5_1(x)
+        layer3 = self.branch5x5_2(layer3)
+
+        layer4 = self.branch3x3_1(x)
+        layer4 = self.branch3x3_2(layer4)
+        layer4 = self.branch3x3_3(layer4)
+
+        outputs = [layer1, layer2, layer3, layer4]
+        return torch.cat(outputs, dim=1)
+
+
 class CNN(torch.nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
-        self.conv1 = torch.nn.Conv2d(1, 10, 3)
-        self.conv2 = torch.nn.Conv2d(10, 20, 3)
-        self.conv3 = torch.nn.Conv2d(20, 30, 3)
-        self.pooling = torch.nn.MaxPool2d(2)
-        self.l1 = torch.nn.Linear(30, 20)
-        self.l2 = torch.nn.Linear(20, 10)
+        self.inceptin1 = Inception(channel=10)
+        self.inceptin2 = Inception(channel=20)
+
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
+        self.conv2 = nn.Conv2d(88, 20, kernel_size=5)
+
+        self.pooling = nn.MaxPool2d(2)
+
+        self.linear = nn.Linear(1408, 10)
+
         
 
     def forward(self, x):
         batchsize = x.size(0)
         x = F.relu(self.pooling(self.conv1(x)))
+        x = self.inceptin1(x)
         x = F.relu(self.pooling(self.conv2(x)))
-        x = F.relu(self.pooling(self.conv3(x)))
+        x = self.inceptin2(x)
         x = x.view(batchsize, -1)
-        # print(x.shape)
-        x = F.relu(self.l1(x))
-        x = self.l2(x)
+        x = self.linear(x)
         return x
     
 modle = CNN()
