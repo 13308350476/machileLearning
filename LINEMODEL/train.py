@@ -1,98 +1,57 @@
 import torch
-from torchvision import datasets
-from torchvision import transforms
-from torch.utils.data import DataLoader
-import torch.nn.functional as F
-import torch.nn as nn
-
-batch_size = 64
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))
-])
-
-train_sets = datasets.MNIST(root='../datasets/minist', train=True, download=False, transform=transform)
-train_loader = DataLoader(dataset=train_sets, shuffle=True, batch_size=batch_size)
 
 
-class Inception(nn.Module):
-    def __init__(self, channel):
-        super(Inception, self).__init__()
-        self.aver_pool = nn.AvgPool2d(kernel_size=3, padding=1, stride=1)
-        self.branch_pool = nn.Conv2d(channel, 24, kernel_size=1)
+batch_size = 1
+input_size = 4
+seq_size = 5
+hidden_size = 5
+num_layer = 1
 
-        self.branch1x1 = nn.Conv2d(channel, 16, kernel_size=1)
+idx2char = ['e', 'h', 'l', 'o']
+x_data = [1, 0, 2, 2, 3]
+y_data = [3, 1, 2, 3, 2] 
 
-        self.branch5x5_1 = nn.Conv2d(channel, 16, kernel_size=1)
-        self.branch5x5_2 = nn.Conv2d(16, 24, kernel_size=5, padding=2)
+onehot_lookup = [[1, 0, 0, 0],
+                 [0, 1, 0, 0],
+                 [0, 0, 1, 0],
+                 [0, 0, 0, 1]]
 
-        self.branch3x3_1 = nn.Conv2d(channel, 16, kernel_size=1)
-        self.branch3x3_2 = nn.Conv2d(16, 24, kernel_size=3, padding=1)
-        self.branch3x3_3 = nn.Conv2d(24, 24, kernel_size=3, padding=1)
+onehot = [onehot_lookup[x] for x in x_data]
+inputs = torch.Tensor(onehot).view(-1, batch_size, input_size)
 
-    def forward(self, x):
-        layer1 = self.aver_pool(x)
-        layer1 = self.branch_pool(layer1)
+label = torch.LongTensor(y_data)
 
-        layer2 = self.branch1x1(x)
-        
-        layer3 = self.branch5x5_1(x)
-        layer3 = self.branch5x5_2(layer3)
-
-        layer4 = self.branch3x3_1(x)
-        layer4 = self.branch3x3_2(layer4)
-        layer4 = self.branch3x3_3(layer4)
-
-        outputs = [layer1, layer2, layer3, layer4]
-        return torch.cat(outputs, dim=1)
-
-
-class CNN(torch.nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        self.inceptin1 = Inception(channel=10)
-        self.inceptin2 = Inception(channel=20)
-
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(88, 20, kernel_size=5)
-
-        self.pooling = nn.MaxPool2d(2)
-
-        self.linear = nn.Linear(1408, 10)
-
-        
+class NET(torch.nn.Module):
+    def __init__(self, inputsize, batchsize, hiddensize, numlayer=1):
+        super(NET, self).__init__()
+        self.input_size = inputsize
+        self.batch_size = batchsize
+        self.hidden_size = hiddensize
+        self.num_layer = numlayer
+        self.rnn = torch.nn.RNN(input_size=self.input_size, hidden_size=self.hidden_size, num_layers=self.num_layer)
 
     def forward(self, x):
-        batchsize = x.size(0)
-        x = F.relu(self.pooling(self.conv1(x)))
-        x = self.inceptin1(x)
-        x = F.relu(self.pooling(self.conv2(x)))
-        x = self.inceptin2(x)
-        x = x.view(batchsize, -1)
-        x = self.linear(x)
-        return x
+        hiddenlayer = torch.zeros(self.num_layer, self.batch_size, self.hidden_size)
+        output,_ = self.rnn(x, hiddenlayer)
+        return output.view(-1, self.hidden_size*self.batch_size)
     
-modle = CNN()
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'GPU')
-modle.to(device)
+modle = NET(input_size, batch_size, hidden_size)
 
-criteration = torch.nn.CrossEntropyLoss()
-optimition = torch.optim.SGD(modle.parameters(), lr=0.05, momentum=0.5)
+criterion = torch.nn.CrossEntropyLoss()
+optimition = torch.optim.Adam(modle.parameters(), lr=0.1)
 
-def train(epoch):
-    toltal_loss = 0
-    for index, data in enumerate(train_loader, 0):
-        x_data, y_data = data
-        x_data, y_data = x_data.to(device), y_data.to(device)
-        y_prey = modle(x_data)
-        loss = criteration(y_prey, y_data)
-        toltal_loss += loss
-        optimition.zero_grad()
-        loss.backward()
-        optimition.step()
-        if index % 300 == 299:
-            print('[%d, %d] loss: %.3f' % (epoch + 1, index + 1, toltal_loss / 300))
-            toltal_loss = 0.0
+for epoch in range(100):
+    hidden = modle(inputs)
+    loss = criterion(hidden, label)
+    optimition.zero_grad()
+    loss.backward()
+    optimition.step()
+    
+    TEMP, idx = hidden.max(dim=1)
+    # print(TEMP)
+    # print(idx)
+    idx = idx.data.numpy()
+    print(idx)
 
-for epoch in range(1):
-    train(epoch)
+    print('Predicted: ', ''.join([idx2char[x] for x in idx]), end='')
+    print(', Epoch [%d/10] loss = %.3f' % (epoch + 1, loss.item()))

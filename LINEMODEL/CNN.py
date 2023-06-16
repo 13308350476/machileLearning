@@ -57,5 +57,5 @@ def train(epoch):
             total_loss = 0.0
 
 # if __name__ == '__main__':
-for epoch in range(100):
+for epoch in range(1):
     train(epoch)
